@@ -1,10 +1,14 @@
 <?php
 session_start();
+if (!isset($_SESSION['username'])) {
+    header("Location: login.php");
+    exit;
+}
 include('filter.php');
 include('connection.php');
 
-$connection = new Connection();
-$pdo = $connection->OpenConnection();
+// $connection = new Connection();
+// $pdo = $connection->OpenConnection();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -14,6 +18,7 @@ $pdo = $connection->OpenConnection();
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Product Management System</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
@@ -298,8 +303,21 @@ $pdo = $connection->OpenConnection();
         </div>
     </div>
 </div>
+<div class="container mt-3 d-flex justify-content-end">
+    <a href="logout.php" class="btn btn-outline-danger">Logout</a>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 
 </html>
+
+
+<!-- CREATE TABLE users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(255) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL
+
+    INSERT INTO users (username, password) VALUES ('admin', 'password123');
+
+); -->
