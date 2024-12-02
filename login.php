@@ -7,76 +7,72 @@ $pdo = $connection->OpenConnection();
 
 $error = '';
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (isset($_POST['login'])) {
-        // Handle login
-        $username = $_POST['username'];
-        $password = $_POST['password'];
+// Registration Logic
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['register'])) {
+    $first_name = $_POST['first_name'];
+    $last_name = $_POST['last_name'];
+    $address = $_POST['address'];
+    $birthdate = $_POST['birthdate'];
+    $gender = $_POST['gender'];
+    $username = $_POST['reg_username'];
+    $password = password_hash($_POST['reg_password'], PASSWORD_DEFAULT); // Securely hash the password
 
-        // Fetch user data from the database
-        $query = "SELECT * FROM users WHERE username = :username LIMIT 1";
-        $stmt = $pdo->prepare($query);
-        $stmt->execute([':username' => $username]);
-        $user = $stmt->fetch();
+    // Insert the new user into the `register` table
+    $query = "INSERT INTO register (first_name, last_name, address, birthdate, gender, username, password)
+              VALUES (:first_name, :last_name, :address, :birthdate, :gender, :username, :password)";
+    $stmt = $pdo->prepare($query);
 
-        // Check if user exists and passwords match
-        if ($user && password_verify($password, $user->password)) { 
-            $_SESSION['username'] = $user->username;
-            header("Location: index.php");
-            exit;
-        } else {
-            $error = "SAYOP AMAW.";
-        }
-    } elseif (isset($_POST['register'])) {
-        // Handle registration
-        $first_name = $_POST['first_name'];
-        $last_name = $_POST['last_name'];
-        $address = $_POST['address'];
-        $birthdate = $_POST['birthdate'];
-        $gender = $_POST['gender'];
-        $username = $_POST['reg_username'];
-        $password = $_POST['reg_password'];
+    try {
+        $stmt->execute([
+            ':first_name' => $first_name,
+            ':last_name' => $last_name,
+            ':address' => $address,
+            ':birthdate' => $birthdate,
+            ':gender' => $gender,
+            ':username' => $username,
+            ':password' => $password
+        ]);
+        $_SESSION['success'] = "Account registered successfully! You can now log in.";
+    } catch (Exception $e) {
+        $_SESSION['error'] = "Registration failed: " . $e->getMessage();
+    }
 
-        // Check if username already exists
-        $query = "SELECT * FROM users WHERE username = :username LIMIT 1";
-        $stmt = $pdo->prepare($query);
-        $stmt->execute([':username' => $username]);
-        $existing_user = $stmt->fetch();
+    header("Location: login.php");
+    exit;
+}
 
-        if ($existing_user) {
-            $error = "Username already exists.";
-        } else {
-            // Insert new user into users table
-            $hashed_password = password_hash($password, PASSWORD_DEFAULT);
-            $query = "INSERT INTO users (username, password) VALUES (:username, :password)";
-            $stmt = $pdo->prepare($query);
-            $result = $stmt->execute([':username' => $username, ':password' => $hashed_password]);
+// Login Logic
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
+    $username = $_POST['username'];
+    $password = $_POST['password'];
 
-            if ($result) {
-                // Now insert into the register table
-                $query = "INSERT INTO register (first_name, last_name, address, birthdate, gender, username, password, role, date_created) 
-                          VALUES (:first_name, :last_name, :address, :birthdate, :gender, :username, :password, 'user', NOW())";
-                $stmt = $pdo->prepare($query);
-                $result = $stmt->execute([
-                    ':first_name' => $first_name,
-                    ':last_name' => $last_name,
-                    ':address' => $address,
-                    ':birthdate' => $birthdate,
-                    ':gender' => $gender,
-                    ':username' => $username,
-                    ':password' => $hashed_password // Store hashed password
-                ]);
+    // Check admin login in the `users` table
+    $query = "SELECT * FROM users WHERE username = :username LIMIT 1";
+    $stmt = $pdo->prepare($query);
+    $stmt->execute([':username' => $username]);
+    $admin = $stmt->fetch(PDO::FETCH_OBJ);
 
-                if ($result) {
-                    header("Location: login.php");
-                    exit;
-                } else {
-                    $error = "Registration failed in the register table. Please try again.";
-                }
-            } else {
-                $error = "Failed to create user in the users table.";
-            }
-        }
+    if ($admin && password_verify($password, $admin->password)) {
+        $_SESSION['username'] = $admin->username;
+        $_SESSION['role'] = 'admin';
+        header("Location: index.php");
+        exit;
+    }
+
+    // Check user login in the `register` table
+    $query = "SELECT * FROM register WHERE username = :username LIMIT 1";
+    $stmt = $pdo->prepare($query);
+    $stmt->execute([':username' => $username]);
+    $user = $stmt->fetch(PDO::FETCH_OBJ);
+
+    if ($user && password_verify($password, $user->password)) {
+        $_SESSION['username'] = $user->username;
+        $_SESSION['user_id'] = $user->user_id;
+        $_SESSION['role'] = 'user';
+        header("Location: landing.php");
+        exit;
+    } else {
+        $error = "Incorrect username or password.";
     }
 }
 ?>
@@ -88,11 +84,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .alert { padding: 10px; margin-bottom: 15px; border-radius: 4px; text-align: center; font-size: 14px; }
+        .alert-success { background-color: #d4edda; color: #155724; }
+        .alert-error { background-color: #f8d7da; color: #721c24; }
+    </style>
 </head>
 <body>
 <div class="container mt-5">
     <h2>I P A S O L O D</h2>
     <?php if ($error) { echo "<div class='alert alert-danger'>$error</div>"; } ?>
+    <?php if (isset($_SESSION['success'])): ?>
+        <div class="alert alert-success" id="success-alert"><?= $_SESSION['success']; unset($_SESSION['success']); ?></div>
+    <?php endif; ?>
 
     <form action="login.php" method="POST">
         <h4>Login</h4>
@@ -112,7 +116,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </button>
 
     <!-- Registration Modal -->
-    <div class="modal fade" id="registrationModal" tabindex="-1" aria-labelledby="registrationModalLabel" aria-hidden="true">
+    <div class="modal fade" id="registrationModal" tabindex="-1" aria-labelledby="registrationModalLabel" aria-hidden="true" <?php if (isset($_SESSION['error'])) echo 'data-bs-backdrop="static" data-bs-keyboard="false"'; ?>>
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
@@ -120,6 +124,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
+                    <?php if (isset($_SESSION['error'])): ?>
+                        <div class="alert alert-error" id="error-alert"><?= $_SESSION['error']; unset($_SESSION['error']); ?></div>
+                    <?php endif; ?>
                     <form action="login.php" method="POST">
                         <div class="mb-3">
                             <label for="first_name" class="form-label">First Name</label>
@@ -163,5 +170,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    <?php if (isset($_SESSION['error'])): ?>
+        var registrationModal = new bootstrap.Modal(document.getElementById('registrationModal'));
+        registrationModal.show();
+    <?php endif; ?>
+
+    setTimeout(function() {
+        const errorAlert = document.getElementById("error-alert");
+        const successAlert = document.getElementById("success-alert");
+        if (errorAlert) errorAlert.style.display = "none";
+        if (successAlert) successAlert.style.display = "none";
+    }, 3000);
+</script>
 </body>
 </html>

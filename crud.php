@@ -125,4 +125,53 @@ if (isset($_POST['add_category'])) {
     }
 }
 
+// Mark Pending Order as Done
+if (isset($_POST['mark_order_done'])) {
+    $order_id = $_POST['order_id'];
+
+    // Update order status to 'done'
+    $query = "UPDATE orders SET status = 'Completed' WHERE id = :order_id";
+    $query_run = $con->prepare($query);
+
+    $data = [
+        ':order_id' => $order_id,
+    ];
+
+    $query_execute = $query_run->execute($data);
+
+    if ($query_execute) {
+        $_SESSION['status'] = "Order Marked as Done";
+        header("Location: index.php");
+        exit(0);
+    } else {
+        $_SESSION['status'] = "Order Not Updated";
+        header("Location: index.php");
+        exit(0);
+    }
+}
+
+// Delete Pending Order Logic
+if (isset($_POST['delete_order'])) {
+    $order_id = $_POST['order_id'];
+
+    // Delete query for pending orders
+    $query = "DELETE FROM orders WHERE id = :order_id";
+    $query_run = $con->prepare($query);
+
+    $data = [
+        ':order_id' => $order_id,
+    ];
+
+    $query_execute = $query_run->execute($data);
+
+    if ($query_execute) {
+        $_SESSION['status'] = "Order Deleted Successfully";
+        header("Location: index.php");
+        exit(0);
+    } else {
+        $_SESSION['status'] = "Order Not Deleted";
+        header("Location: index.php");
+        exit(0);
+    }
+}
 ?>
